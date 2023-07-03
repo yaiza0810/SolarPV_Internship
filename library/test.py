@@ -5,24 +5,25 @@ dt = gr.data()
 pred = hey.calcule_pred()
 real = dt.df_prod_toit
 eval = gr.eval()
-# eval.plot_result(real, pred)
-# eval.evaluation(real, pred)
-# print('\nOndulateur A \n')
-# real_A = dt.df_inverters['Onduleur A: energie totale (MWh)']
-# power = [[8.1+13.77, 139], [8.1+14.58, -41]]
+eval.plot_result(real, pred)
+eval.evaluation(real, pred)
+print('\nOndulateur A \n')
+real_A = dt.df_inverters['Onduleur A: energie totale (MWh)']
+power = [[8.1+13.77, 139], [8.1+14.58, -41]]
 
 
-# pred_A = hey.inverters(power_angles=power, model_irrad='isotropic')
-# eval.plot_result(real_A, pred_A, 'figs/onduleurA.png')
-# eval.evaluation(real_A, pred_A)
+pred_A = hey.inverters(power_angles=power, model_irrad='isotropic')
+eval.plot_result(real_A, pred_A, 'figs/onduleurA.png')
+eval.evaluation(real_A, pred_A)
 
-# print('\nOndulateur DA \n')
-# real_DA = dt.df_inverters['Onduleur D-A: energie totale (MWh)']
-# powerDA =[32.8, 139]
-# pred_DA = hey.inverters(power_angles=powerDA, model_irrad='isotropic')
-# eval.plot_result(real_DA, pred_DA, 'figs/onduleurDA.png')
-# eval.evaluation(real_DA, pred_DA)
+print('\nOndulateur DA \n')
+real_DA = dt.df_inverters['Onduleur D-A: energie totale (MWh)']
+powerDA =[32.8, 139]
+pred_DA = hey.inverters(power_angles=powerDA, model_irrad='isotropic')
+eval.plot_result(real_DA, pred_DA, 'figs/onduleurDA.png')
+eval.evaluation(real_DA, pred_DA)
 
+# Example code to run the PSO algorithm
 
 pso = gr.PSO()
 df= pso.df

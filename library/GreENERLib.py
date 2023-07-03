@@ -37,62 +37,6 @@ from abc import ABC
 from pyswarm import pso
 
 
-
-class data(): 
-    """ This class creates the necessary dataframes for the use of the rest of the library"""
-
-    def __init__(self, start = '2022-09-10', end = '2023-06-01'): 
-        """ 
-            Initialize the data frame 
-            # Parameters
-            df_prod_toit : DataFrame
-        """
-        self.start = start
-        self.end = end
-        self.df_prod_toit = None
-        self.df_inverters = None
-        self.weather_data = None
-        self.ghi_cs = None
-        self.ghi_m = None
-        self.create_df()
-        
-    def create_df(self):
-        """ 
-            Creates the data frames with the real values 
-        """
-        # creates the dataframe with the roof production
-        self.df_prod_toit = pd.read_csv('data/prod.csv', parse_dates=True, index_col='Unnamed: 0')[' Production PV toiture instantanee reelle (kW)']
-        self.df_prod_toit = self.df_prod_toit.resample('1H').mean().interpolate(method='time')
-        self.df_prod_toit = self.df_prod_toit.loc[self.df_prod_toit.index <= self.end]
-        self.df_prod_toit = self.df_prod_toit.loc[self.df_prod_toit.index >= self.start]
-
-        # creates the dataframe with the inverters of the roof production
-        self.df_inverters = pd.read_csv('data/pv_inverters_energy.csv',parse_dates=True, index_col='Unnamed: 0')
-        self.df_inverters = self.df_inverters[self.df_inverters <= 1000]
-        self.df_inverters = self.df_inverters[self.df_inverters != 0]
-        self.df_inverters = self.df_inverters.interpolate('pad')
-        self.df_inverters = self.df_inverters.resample('1H').mean().interpolate(method='time')
-        self.df_inverters.loc["2023-01-05 13:00:00",'Onduleur: energie totale (MWh)'] = self.df_inverters.loc["2023-01-05 14:00:00",'Onduleur: energie totale (MWh)']
-        self.df_inverters.loc["2022-12-22 11:00:00",'Onduleur: energie totale (MWh)'] = self.df_inverters.loc["2022-12-22 12:00:00",'Onduleur: energie totale (MWh)']
-        self.df_inverters = self.df_inverters.diff().fillna(0) 
-        self.df_inverters*=1000
-        self.df_inverters = self.df_inverters.loc[self.df_inverters.index <= self.end]
-        self.df_inverters = self.df_inverters.loc[self.df_inverters.index >= self.start]
-
-        # creates the dataframe for the training of the model 2020-2022
-        self.weather_data = pd.read_csv('data/Weather_data_2020-2022.csv', parse_dates=True, index_col='DateHeure')
-
-        # creates dataframe for the PSO parallelized 
-        self.ghi_cs = pd.read_csv('/Users/yaizabermudez/internship/data_stage/PVLIB/Ineichen_clear-sky_model.csv', index_col='Unnamed: 0')[:'2023-06-01 01']
-        self.ghi_cs = self.ghi_cs.drop('dhi', axis = 1)
-        self.ghi_cs = self.ghi_cs.drop('dni', axis = 1)
-        self.ghi_m = pd.read_csv('data/Rayonnement solaire-data-2023-06-13 09_46_08.csv', index_col='Time')[:'2023-06-01 01']
-        
-
-    
-    
-
-
 class physicalform():
     
     """This class contains all the necessary functions to create a clear sky model from any PV panel"""
@@ -148,7 +92,39 @@ class physicalform():
         self.airmass_relative = None
         self.airmass_absolute = None 
         self.incidence_angle = None
+        #  dataframes 
+        self.df_prod_toit = None
+        self.df_inverters  = None
+        self.create_df()
+
         
+    def create_df(self, df):
+         # creates the dataframe with the roof production
+        self.df_prod_toit = pd.read_csv('data/prod.csv', parse_dates=True, index_col='Unnamed: 0')[' Production PV toiture instantanee reelle (kW)']
+        self.df_prod_toit = self.df_prod_toit.resample('1H').mean().interpolate(method='time')
+        self.df_prod_toit = self.df_prod_toit.loc[self.df_prod_toit.index <= self.end]
+        self.df_prod_toit = self.df_prod_toit.loc[self.df_prod_toit.index >= self.start]
+
+         # creates the dataframe with the inverters of the roof production
+        self.df_inverters = pd.read_csv('data/pv_inverters_energy.csv',parse_dates=True, index_col='Unnamed: 0')
+        self.df_inverters = self.df_inverters[self.df_inverters <= 1000]
+        self.df_inverters = self.df_inverters[self.df_inverters != 0]
+        self.df_inverters = self.df_inverters.interpolate('pad')
+        self.df_inverters = self.df_inverters.resample('1H').mean().interpolate(method='time')
+        self.df_inverters.loc["2023-01-05 13:00:00",'Onduleur: energie totale (MWh)'] = self.df_inverters.loc["2023-01-05 14:00:00",'Onduleur: energie totale (MWh)']
+        self.df_inverters.loc["2022-12-22 11:00:00",'Onduleur: energie totale (MWh)'] = self.df_inverters.loc["2022-12-22 12:00:00",'Onduleur: energie totale (MWh)']
+        self.df_inverters = self.df_inverters.diff().fillna(0) 
+        self.df_inverters*=1000
+        self.df_inverters = self.df_inverters.loc[self.df_inverters.index <= self.end]
+        self.df_inverters = self.df_inverters.loc[self.df_inverters.index >= self.start]
+
+        if df == None : 
+            df = self.neb.copy()
+            df['ghi_m'] = self.ghi_m['ghi_m']
+            df['ghi_cs'] = self.ghi_cs['ghi']
+        return df 
+
+
 
     def physical_val(self, tilt, azimuth):
 
@@ -284,7 +260,7 @@ class physicalform():
         else : 
             raise "power_angles is not of the correct type"
 
-        return df_pred
+        return df_pred, df_true
 
 
 
@@ -340,7 +316,7 @@ class Models(ABC):
     # abstract method
     def predictions(self):
         """
-            For NN trains and saves the model, for the others computes the results
+            Returns the prediction and the truth values
         """
         pass
     
@@ -373,45 +349,53 @@ class PSO(Models):
         self.end = end
         # self.dates = None
         # self.index = None
+        # self.i = None
         self.ghi_cs = None
         self.ghi_m = None
         self.neb = None
-        self.df = self.create_df(None)
+        self.df = self.create_df()
 
-    def create_df(self, df):
+    def create_df(self):
+
+        """
+            Creates a dataframe with the nebulosity, the measured irradiance and the physical irraidance
+        """
         # creates dataframe for the PSO parallelized 
         self.ghi_cs = pd.read_csv('data/Ineichen_clear-sky_model.csv', index_col='Unnamed: 0')[:'2023-06-01 01']
         self.ghi_cs = self.ghi_cs.drop('dhi', axis = 1)
         self.ghi_cs = self.ghi_cs.drop('dni', axis = 1)
+        self.ghi_cs.index = pd.to_datetime(self.ghi_cs.index, format ='%Y-%m-%d %H:%M:%S')
         self.ghi_cs /= 1000
-        print('taille GHI_CS',len(self.ghi_cs))
-        print(self.ghi_cs)
+        # print('taille GHI_CS',len(self.ghi_cs))
+        # print(self.ghi_cs)
 
         self.ghi_m = pd.read_csv('data/Rayonnement solaire-data-2023-06-13 09_46_08.csv', index_col='Time')[:'2023-06-01 01']
+        self.ghi_m.columns = ['ghi_m']
+        self.ghi_m.index = pd.to_datetime(self.ghi_m.index, format ='%Y-%m-%d %H:%M:%S')
         self.ghi_m/=1000
-        print('taille GHI_m',len(self.ghi_m))
-        print(self.ghi_m)
+        # print('taille GHI_m',len(self.ghi_m))
+        # print(self.ghi_m)
         
         self.neb =pd.read_csv("data/neb.csv", index_col='Date')
         self.neb.index = pd.to_datetime(self.neb.index, format ='%Y-%m-%d %H:%M:%S')
         self.neb= self.neb ['2022-09-10':'2023-06-01 00']
-        print('taille neb',len(self.neb))
-        print(self.neb)
+        # print('taille neb',len(self.neb))
+        # print(self.neb)
         self.neb.index = self.ghi_cs.index
         self.ghi_m.index = self.ghi_cs.index
        
 
-        if df == None : 
-            df = self.neb.copy()
-            df['ghi_m'] = self.ghi_m['ghi_m']
-            df['ghi_cs'] = self.ghi_cs['ghi']
+        df = self.neb.copy()
+        df['ghi_m'] = self.ghi_m['ghi_m']
+        df['ghi_cs'] = self.ghi_cs['ghi']
+      
         return df 
         
 
     def loss_func(self, x):
         a = x[0]
         n = x[1]
-        diff = np.square(self.df['ghi_m'][self.index:self.dates[i]] - (1- (a * np.power(self.df[' nebulosity'][self.index:self.dates[i]], n)))* self.df['ghi_cs'][self.index:self.dates[i]])
+        diff = np.square(self.df['ghi_m'][self.index:self.dates[self.i]] - (1- (a * np.power(self.df[' nebulosity'][self.index:self.dates[self.i]], n)))* self.df['ghi_cs'][self.index:self.dates[self.i]])
         loss = np.sum(diff)
         return loss
 
@@ -427,55 +411,57 @@ class PSO(Models):
         ub = [1, 10]
         xa = []
         xn = []
-        i = 1
+        self.i = 1
+        lag_time = lag
 
         hour = (int(self.end[12])+lag)%24
         day = int(self.end[9])+(lag//24)
+        end = self.end
 
         if lag >= 24 :
-            print(day)
             if day < 10:
-                print('here')
-                end = self.end[:9] + str(day) + self.end[10:]
+                end = end[:9] + str(day) + end[10:]
             else : 
-                end = self.end[:8] + str(day) + self.end[10:]
+                end = end[:8] + str(day) + end[10:]
             lag %= 24
 
         if lag < 24 :
-            print(end[12], hour)
             if hour < 10:
-                print('here')
-                end = self.end[:12] + str(hour) + self.end[13:]
+                end = end[:12] + str(hour) + end[13:]
             else : 
-                end = self.end[:11] + str(hour) + self.end[13:]
+                end = end[:11] + str(hour) + end[13:]
         elif lag % 24 == 0 : 
-            end = self.end[:9] + str((int(self.end[9])+1)%24) + self.end[10:]
+            end = end[:9] + str((int(end[9])+1)%24) + end[10:]
+
+        # print(end, self.end)
 
         self.dates = pd.date_range(self.start, end, freq="H")
+        # print(self.dates)
+        # print(self.df[self.start:self.end])
+        
+        
         for self.index, _ in self.df[self.start:self.end].iterrows():
-            if (i-1) % lag == 0:
+            if ((self.i-1) % lag_time) == 0 :
                 # print(index, self.dates[i])
                 xopt, _ = pso(self.loss_func, lb, ub)
+                
 
             xa.append(xopt[0])
             xn.append(xopt[1])
-            i+=1
+            self.i+=1
 
-        # plt.plot(xa)
-        # plt.show()
-        # plt.plot(xn)
-        # plt.show()
-        
-        pred = self.ghi_cs[self.start:self.end].copy()
-        pred.columns = ['pred_']
+        df_pred = self.ghi_cs[self.start:self.end].copy()
+        df_pred.columns = ['pred_']
+        # print(df_pred)
 
-        pred['pred_'] = ((1-xa*np.power(self.df[' nebulosity'][self.start:self.end].values, xn))* self.df['ghi_cs'][self.start:self.end].to_numpy())*1000
-        pred['pred_'] = [data if data >= 0 else 0 for data in pred['pred_']] 
-        pred['pred_'] = [data if data <= 1000 else 1000 for data in pred['pred_']] 
+        df_pred['pred_'] = ((1-xa*np.power(self.df[' nebulosity'][self.start:self.end].values, xn))* self.df['ghi_cs'][self.start:self.end].to_numpy())*1000
+        # print(df_pred['pred_'])
+        df_pred['pred_'] = [data if data >= 0 else 0 for data in pred['pred_']] 
+        df_pred['pred_'] = [data if data <= 1000 else 1000 for data in pred['pred_']] 
 
-        true =self.ghi_m[self.start:self.end]*1000
+        df_true =self.ghi_m[self.start:self.end]*1000
 
-        return pred, true
+        return df_pred, df_true
 
 
 
@@ -553,6 +539,9 @@ class parallel_PSO(Models):
 class LSTM():
     def __init__(self):
         self.LSTM_model = None
+        
+        # creates the dataframe for the training of the model 2020-2022
+        self.weather_data = pd.read_csv('data/Weather_data_2020-2022.csv', parse_dates=True, index_col='DateHeure')
 
 
     def LSTM(self, train_X, train_y):
